@@ -1,4 +1,4 @@
--- Run this in the Supabase SQL editor before submitting prospects.
+-- Run in Supabase SQL editor, or locally: npm run db:setup
 
 create table if not exists public.prospects (
   id uuid primary key default gen_random_uuid(),
