@@ -18,7 +18,11 @@ export interface GoogleUserProfile {
   email: string;
   givenName: string;
   familyName: string;
+  fullName: string;
   picture?: string;
+  emailVerified: boolean;
+  locale: string;
+  googleId: string;
 }
 
 export interface GoogleProspectLoginProps {

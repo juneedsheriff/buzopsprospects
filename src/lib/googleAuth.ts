@@ -13,7 +13,11 @@ export function decodeGoogleCredential(credential: string): GoogleUserProfile {
     email: payload.email,
     givenName: payload.given_name ?? '',
     familyName: payload.family_name ?? '',
+    fullName: payload.name ?? [payload.given_name, payload.family_name].filter(Boolean).join(' '),
     picture: payload.picture,
+    emailVerified: Boolean(payload.email_verified),
+    locale: payload.locale ?? '',
+    googleId: payload.sub,
   };
 }
 
@@ -22,7 +26,8 @@ export async function fetchGoogleProfileImageAsFile(
   filename = 'google-profile.jpg',
 ): Promise<File | null> {
   try {
-    const response = await fetch(pictureUrl);
+    const proxyUrl = `/api/google/profile-photo?url=${encodeURIComponent(pictureUrl)}`;
+    const response = await fetch(proxyUrl);
 
     if (!response.ok) {
       return null;
