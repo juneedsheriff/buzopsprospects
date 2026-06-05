@@ -1,8 +1,9 @@
 'use client';
 
+import EmailAlreadyExistsModal from '@/components/EmailAlreadyExistsModal';
 import GoogleProspectLogin from '@/components/GoogleProspectLogin';
 import { fetchGoogleProfileImageAsFile } from '@/lib/googleAuth';
-import { submitProspect } from '@/lib/submitProspect';
+import { ProspectSubmitError, submitProspect } from '@/lib/submitProspect';
 import { verifyProspectEmail } from '@/lib/verifyEmail';
 import type { GoogleUserProfile } from '@/types/google';
 import {
@@ -58,6 +59,7 @@ export default function ProspectPublicForm({
   const [isLookingUpEmail, setIsLookingUpEmail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [emailExistsModalOpened, setEmailExistsModalOpened] = useState(false);
   const emailTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastVerifiedEmailRef = useRef('');
   const objectUrlRef = useRef<string | null>(null);
@@ -227,13 +229,17 @@ export default function ProspectPublicForm({
     setPhotoPreview(null);
   }, [setPhotoPreview, updateField]);
 
-  const handleClearForm = useCallback(() => {
+  const resetFormFields = useCallback(() => {
     setForm(emptyProspectFormValues());
     setPhotoPreview(null);
     photoFileRef.current = null;
     lastVerifiedEmailRef.current = '';
-    setIsSubmitted(false);
   }, [setPhotoPreview]);
+
+  const handleClearForm = useCallback(() => {
+    resetFormFields();
+    setIsSubmitted(false);
+  }, [resetFormFields]);
 
   const handleSubmit = useCallback(async () => {
     const email = form.email.trim();
@@ -261,6 +267,7 @@ export default function ProspectPublicForm({
     try {
       const result = await submitProspect(form, photoFileRef.current);
 
+      resetFormFields();
       setIsSubmitted(true);
       notifications.show({
         title: 'Submitted',
@@ -269,6 +276,13 @@ export default function ProspectPublicForm({
       });
     }
     catch (error) {
+      if (error instanceof ProspectSubmitError && error.code === 'duplicate_email') {
+        resetFormFields();
+        setIsSubmitted(false);
+        setEmailExistsModalOpened(true);
+        return;
+      }
+
       notifications.show({
         title: 'Submit failed',
         message: error instanceof Error ? error.message : 'Could not save prospect. Try again.',
@@ -278,7 +292,7 @@ export default function ProspectPublicForm({
     finally {
       setIsSubmitting(false);
     }
-  }, [form]);
+  }, [form, resetFormFields]);
 
   useEffect(() => {
     return () => {
@@ -491,6 +505,11 @@ export default function ProspectPublicForm({
           )}
         </Stack>
       </Paper>
+
+      <EmailAlreadyExistsModal
+        opened={emailExistsModalOpened}
+        onClose={() => setEmailExistsModalOpened(false)}
+      />
     </Stack>
   );
 }

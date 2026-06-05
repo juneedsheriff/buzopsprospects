@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: 'Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+        message: 'Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
       } satisfies SubmitProspectResult,
       { status: 503 },
     );
@@ -86,6 +86,29 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { success: false, message: 'Enter at least a first name, last name, or full name.' } satisfies SubmitProspectResult,
       { status: 400 },
+    );
+  }
+
+  const normalizedEmail = payload.email.toLowerCase();
+  payload.email = normalizedEmail;
+
+  const { data: existingProspect, error: lookupError } = await supabase
+    .from('prospects')
+    .select('id')
+    .ilike('email', normalizedEmail)
+    .maybeSingle();
+
+  if (lookupError) {
+    return NextResponse.json(
+      { success: false, message: 'Could not verify this email. Try again.' } satisfies SubmitProspectResult,
+      { status: 500 },
+    );
+  }
+
+  if (existingProspect) {
+    return NextResponse.json(
+      { success: false, message: 'This email has already been submitted.' } satisfies SubmitProspectResult,
+      { status: 409 },
     );
   }
 
@@ -116,6 +139,13 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { success: false, message: 'This email has already been submitted.' } satisfies SubmitProspectResult,
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       { success: false, message: error.message || 'Could not save prospect to Supabase.' } satisfies SubmitProspectResult,
       { status: 500 },

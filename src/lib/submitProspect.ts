@@ -1,6 +1,16 @@
 import type { ProspectPublicFormValues } from '@/types/prospectForm';
 import type { SubmitProspectResult } from '@/types/prospectSubmit';
 
+export class ProspectSubmitError extends Error {
+  readonly code: 'duplicate_email' | 'unknown';
+
+  constructor(message: string, code: 'duplicate_email' | 'unknown' = 'unknown') {
+    super(message);
+    this.name = 'ProspectSubmitError';
+    this.code = code;
+  }
+}
+
 export async function submitProspect(
   values: ProspectPublicFormValues,
   photoFile?: File | null,
@@ -20,7 +30,13 @@ export async function submitProspect(
   const result = await response.json() as SubmitProspectResult;
 
   if (!response.ok || !result.success) {
-    throw new Error(result.message ?? 'Could not save prospect.');
+    const message = result.message ?? 'Could not save prospect.';
+
+    if (response.status === 409) {
+      throw new ProspectSubmitError(message, 'duplicate_email');
+    }
+
+    throw new ProspectSubmitError(message);
   }
 
   return result;

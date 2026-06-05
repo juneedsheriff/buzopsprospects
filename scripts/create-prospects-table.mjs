@@ -41,7 +41,7 @@ const tableSql = `create table if not exists public.prospects (
   created_at timestamptz not null default now()
 );`;
 
-const indexSql = 'create index if not exists prospects_email_idx on public.prospects (lower(email));';
+const indexSql = 'create unique index if not exists prospects_email_unique_idx on public.prospects (lower(email));';
 
 const storageSql = `
 insert into storage.buckets (id, name, public)

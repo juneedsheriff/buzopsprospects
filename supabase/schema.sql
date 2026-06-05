@@ -14,7 +14,7 @@ create table if not exists public.prospects (
   created_at timestamptz not null default now()
 );
 
-create index if not exists prospects_email_idx on public.prospects (lower(email));
+create unique index if not exists prospects_email_unique_idx on public.prospects (lower(email));
 
 insert into storage.buckets (id, name, public)
 values ('prospect-photos', 'prospect-photos', true)
