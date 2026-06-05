@@ -2,6 +2,7 @@
 
 import GoogleProspectLogin from '@/components/GoogleProspectLogin';
 import { fetchGoogleProfileImageAsFile } from '@/lib/googleAuth';
+import { submitProspect } from '@/lib/submitProspect';
 import { verifyProspectEmail } from '@/lib/verifyEmail';
 import type { GoogleUserProfile } from '@/types/google';
 import {
@@ -55,9 +56,12 @@ export default function ProspectPublicForm({
   const [photoFileName, setPhotoFileName] = useState('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLookingUpEmail, setIsLookingUpEmail] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const emailTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastVerifiedEmailRef = useRef('');
   const objectUrlRef = useRef<string | null>(null);
+  const photoFileRef = useRef<File | null>(null);
 
   const updateField = useCallback(<K extends keyof ProspectPublicFormValues>(
     field: K,
@@ -75,11 +79,13 @@ export default function ProspectPublicForm({
     if (file) {
       const url = URL.createObjectURL(file);
       objectUrlRef.current = url;
+      photoFileRef.current = file;
       setPhotoPreviewUrl(url);
       setPhotoFileName(file.name);
       return;
     }
 
+    photoFileRef.current = null;
     setPhotoPreviewUrl(previewUrl ?? null);
     setPhotoFileName(previewUrl ? 'google-profile.jpg' : '');
   }, []);
@@ -224,8 +230,55 @@ export default function ProspectPublicForm({
   const handleClearForm = useCallback(() => {
     setForm(emptyProspectFormValues());
     setPhotoPreview(null);
+    photoFileRef.current = null;
     lastVerifiedEmailRef.current = '';
+    setIsSubmitted(false);
   }, [setPhotoPreview]);
+
+  const handleSubmit = useCallback(async () => {
+    const email = form.email.trim();
+
+    if (!email || !email.includes('@')) {
+      notifications.show({
+        title: 'Email required',
+        message: 'Enter a valid email address before submitting.',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!form.firstName.trim() && !form.lastName.trim() && !form.fullName.trim()) {
+      notifications.show({
+        title: 'Name required',
+        message: 'Enter at least a first name, last name, or full name.',
+        color: 'red',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await submitProspect(form, photoFileRef.current);
+
+      setIsSubmitted(true);
+      notifications.show({
+        title: 'Submitted',
+        message: result.message ?? 'Your prospect details were saved.',
+        color: 'green',
+      });
+    }
+    catch (error) {
+      notifications.show({
+        title: 'Submit failed',
+        message: error instanceof Error ? error.message : 'Could not save prospect. Try again.',
+        color: 'red',
+      });
+    }
+    finally {
+      setIsSubmitting(false);
+    }
+  }, [form]);
 
   useEffect(() => {
     return () => {
@@ -404,9 +457,30 @@ export default function ProspectPublicForm({
             </Grid.Col>
           </Grid>
 
+          {isSubmitted && (
+            <Paper withBorder radius="md" p="md" className="border-[#BBF7D0] bg-[#F0FDF4]">
+              <Text size="sm" fw={600} c="green.8">
+                Thank you — your details have been saved.
+              </Text>
+            </Paper>
+          )}
+
           <Group justify="flex-end">
-            <Button type="button" variant="default" onClick={handleClearForm}>
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleClearForm}
+              disabled={isSubmitting}
+            >
               Clear form
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSubmit()}
+              loading={isSubmitting}
+              disabled={isLoadingProfile}
+            >
+              Submit
             </Button>
           </Group>
 
