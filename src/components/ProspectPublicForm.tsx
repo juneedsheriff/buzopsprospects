@@ -25,6 +25,13 @@ import { notifications } from '@mantine/notifications';
 import { IconPhoto, IconTrash } from '@tabler/icons-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+interface ProspectPublicFormProps {
+  /** Prospect-facing invite page with focused copy and auto Google sign-in. */
+  inviteMode?: boolean;
+  /** Prompt Google One Tap as soon as the page loads. */
+  autoGoogleSignIn?: boolean;
+}
+
 function mapGoogleProfileToForm(user: GoogleUserProfile): ProspectPublicFormValues {
   return {
     email: user.email,
@@ -39,7 +46,10 @@ function mapGoogleProfileToForm(user: GoogleUserProfile): ProspectPublicFormValu
   };
 }
 
-export default function ProspectPublicForm() {
+export default function ProspectPublicForm({
+  inviteMode = false,
+  autoGoogleSignIn = false,
+}: ProspectPublicFormProps = {}) {
   const [form, setForm] = useState<ProspectPublicFormValues>(emptyProspectFormValues);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoFileName, setPhotoFileName] = useState('');
@@ -74,6 +84,20 @@ export default function ProspectPublicForm() {
     setPhotoFileName(previewUrl ? 'google-profile.jpg' : '');
   }, []);
 
+  const clearInviteQueryFromUrl = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.has('signin')) {
+      url.searchParams.delete('signin');
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState(window.history.state, '', nextUrl);
+    }
+  }, []);
+
   const applyGoogleProfile = useCallback(async (user: GoogleUserProfile) => {
     setIsLoadingProfile(true);
     setForm(mapGoogleProfileToForm(user));
@@ -99,13 +123,16 @@ export default function ProspectPublicForm() {
     }
 
     setIsLoadingProfile(false);
+    clearInviteQueryFromUrl();
 
     notifications.show({
-      title: 'Google profile loaded',
-      message: 'Public profile data and photo were filled from your Google account.',
+      title: inviteMode ? 'Profile ready' : 'Google profile loaded',
+      message: inviteMode
+        ? 'Your details are filled in. Review them below and continue.'
+        : 'Public profile data and photo were filled from your Google account.',
       color: 'green',
     });
-  }, [setPhotoPreview]);
+  }, [clearInviteQueryFromUrl, inviteMode, setPhotoPreview]);
 
   const lookupEmail = useCallback(async (value: string) => {
     const normalizedEmail = value.trim().toLowerCase();
@@ -217,15 +244,27 @@ export default function ProspectPublicForm() {
   return (
     <Stack gap="lg">
       <div>
-        <Title order={2}>BuzOps Prospects</Title>
+        <Title order={2}>{inviteMode ? 'Complete your profile' : 'BuzOps Prospects'}</Title>
         <Text c="dimmed" size="sm" mt={4}>
-          Sign in with Google to fetch public profile data and photo, or enter details manually.
+          {inviteMode
+            ? 'Sign in with Google to load your details instantly. Your form will update right away — no refresh needed.'
+            : 'Sign in with Google to fetch public profile data and photo, or enter details manually.'}
         </Text>
       </div>
 
       <Paper withBorder radius="md" p="lg" shadow="sm">
         <Stack gap="md">
-          <GoogleProspectLogin onSuccess={user => void applyGoogleProfile(user)} disabled={isLoadingProfile} />
+          <GoogleProspectLogin
+            onSuccess={user => void applyGoogleProfile(user)}
+            disabled={isLoadingProfile}
+            autoPrompt={autoGoogleSignIn}
+          />
+
+          {autoGoogleSignIn && !form.email && !isLoadingProfile && (
+            <Text size="sm" c="dimmed" ta="center">
+              Google sign-in should appear automatically. If not, tap Continue with Google above.
+            </Text>
+          )}
 
           {isLoadingProfile && (
             <Group gap="xs">

@@ -28,4 +28,6 @@ export interface GoogleUserProfile {
 export interface GoogleProspectLoginProps {
   onSuccess: (user: GoogleUserProfile) => void;
   disabled?: boolean;
+  /** Show Google One Tap automatically when the page loads (invite links). */
+  autoPrompt?: boolean;
 }
